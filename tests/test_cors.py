@@ -1,7 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app, get_llm_client
+from app.main import app, get_llm_client, get_rate_limiter
+from app.rate_limiter import RateLimiter
 
 
 class FakeLLMClient:
@@ -12,8 +13,12 @@ class FakeLLMClient:
 @pytest.fixture
 def client():
     app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient()
+    app.dependency_overrides[get_rate_limiter] = lambda: RateLimiter(
+        max_requests=1000, window_seconds=60
+    )
     yield TestClient(app)
     app.dependency_overrides.pop(get_llm_client, None)
+    app.dependency_overrides.pop(get_rate_limiter, None)
 
 
 def test_vercel_production_origin_is_allowed(client):
@@ -35,6 +40,15 @@ def test_vercel_preview_deployment_origin_is_allowed(client):
         response.headers["access-control-allow-origin"]
         == "https://afribiz-test-ui-git-feature-shiv.vercel.app"
     )
+
+
+def test_localhost_origin_is_allowed_for_testing_the_test_ui(client):
+    response = client.post(
+        "/chat",
+        json={"session_id": "cors-4", "message": "Hello"},
+        headers={"Origin": "http://localhost:5500"},
+    )
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5500"
 
 
 def test_unrelated_origin_is_not_allowed(client):

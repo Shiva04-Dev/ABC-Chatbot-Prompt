@@ -1,7 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app, get_llm_client
+from app.main import app, get_llm_client, get_rate_limiter
+from app.rate_limiter import RateLimiter
 
 
 class FakeLLMClient:
@@ -21,8 +22,14 @@ def fake_client():
 @pytest.fixture
 def client(fake_client):
     app.dependency_overrides[get_llm_client] = lambda: fake_client
+    # Unrelated to rate limiting — isolate from the real global limiter so
+    # this file's requests don't count against other test files' quota.
+    app.dependency_overrides[get_rate_limiter] = lambda: RateLimiter(
+        max_requests=1000, window_seconds=60
+    )
     yield TestClient(app)
     app.dependency_overrides.pop(get_llm_client, None)
+    app.dependency_overrides.pop(get_rate_limiter, None)
 
 
 def test_chat_returns_model_reply(client):

@@ -10,3 +10,6 @@ venv/
 
 # Environment
 .env
+
+# Playwright MCP debug output (snapshots/screenshots from manual testing)
+.playwright-mcp/

@@ -1,30 +1,39 @@
 import asyncio
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.language import FALLBACK_NOTICE, resolve_language
 from app.llm_client import AzureLLMClient, LLMClient
 from app.prompts import build_system_prompt
+from app.rate_limiter import RateLimiter
 from app.session_store import SessionStore, session_store
 
-# How often the background sweep checks for idle sessions to drop. Well
-# under the 30-minute TTL so expired sessions don't linger long in memory.
+# How often the background sweep checks for idle sessions / stale rate-limit
+# windows to drop. Well under the 30-minute session TTL so expired entries
+# don't linger long in memory.
 SESSION_SWEEP_INTERVAL_SECONDS = 5 * 60
 
+rate_limiter = RateLimiter(
+    max_requests=settings.rate_limit_max_requests,
+    window_seconds=settings.rate_limit_window_seconds,
+)
 
-async def _sweep_expired_sessions_periodically() -> None:
+
+async def _sweep_stale_state_periodically() -> None:
     while True:
         await asyncio.sleep(SESSION_SWEEP_INTERVAL_SECONDS)
         session_store.purge_expired()
+        rate_limiter.purge_stale()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    sweep_task = asyncio.create_task(_sweep_expired_sessions_periodically())
+    sweep_task = asyncio.create_task(_sweep_stale_state_periodically())
     try:
         yield
     finally:
@@ -52,13 +61,51 @@ def get_session_store() -> SessionStore:
     return session_store
 
 
+def get_rate_limiter() -> RateLimiter:
+    return rate_limiter
+
+
+def _client_key(request: Request) -> str:
+    # Best-effort client identity for rate limiting. X-Forwarded-For is
+    # spoofable unless the deployment sits behind a trusted proxy that sets
+    # it itself — revisit once the hosting target (Section 12.4) is fixed.
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def enforce_rate_limit(
+    request: Request, limiter: RateLimiter = Depends(get_rate_limiter)
+) -> None:
+    if not limiter.is_allowed(_client_key(request)):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests. Please slow down and try again shortly.",
+        )
+
+
 class ChatRequest(BaseModel):
-    session_id: str
-    message: str
+    session_id: str = Field(min_length=1, max_length=128)
+    message: str = Field(min_length=1, max_length=2000)
 
 
 class ChatResponse(BaseModel):
     reply: str
+
+
+@app.exception_handler(Exception)
+async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+    # An exception handler here (registered with FastAPI/Starlette's
+    # ExceptionMiddleware) is what makes CORS headers still get attached to
+    # error responses — letting an exception fall through to Starlette's
+    # outer ServerErrorMiddleware instead produces a response with none,
+    # which browsers surface as a confusing "blocked by CORS policy" error
+    # that has nothing to do with CORS.
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Something went wrong. Please try again shortly."},
+    )
 
 
 @app.get("/health")
@@ -71,6 +118,7 @@ def chat(
     request: ChatRequest,
     client: LLMClient = Depends(get_llm_client),
     sessions: SessionStore = Depends(get_session_store),
+    _rate_limit_check: None = Depends(enforce_rate_limit),
 ) -> ChatResponse:
     resolution = resolve_language(request.message, sessions.get_language(request.session_id))
     sessions.set_language(request.session_id, resolution.language)
@@ -87,6 +135,12 @@ def chat(
         *history,
         {"role": "user", "content": request.message},
     ]
-    reply = client.complete(messages)
+    try:
+        reply = client.complete(messages)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="The AI service is currently unavailable. Please try again shortly.",
+        ) from exc
     sessions.append_turn(request.session_id, request.message, reply)
     return ChatResponse(reply=reply)

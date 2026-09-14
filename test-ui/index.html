@@ -1,0 +1,196 @@
+<!--
+  AfriBiz Connect Assistant — Test UI (CLAUDE.md M7)
+
+  Throwaway UI for manually testing the /chat backend. Not the production
+  website (that lives in a different repo) — Shiv deploys this standalone
+  to Vercel by pointing a project at this folder (zero-config static site,
+  no build step needed).
+
+  Set the "Backend URL" field to wherever the FastAPI app is running
+  (e.g. http://localhost:8000 locally, or the real deployment once M8 is
+  wired up). It's saved in this browser's localStorage purely as a
+  convenience for repeated testing — it has nothing to do with the chat
+  session itself.
+
+  Each page load starts a brand-new session_id in memory only (never
+  persisted), matching the product's session model: one visit, one
+  session, nothing saved once you leave.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AfriBiz Connect Assistant — Test UI</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: #f2f2f2;
+    color: #1a1a1a;
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+  }
+  main {
+    width: 100%;
+    max-width: 640px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  h1 { font-size: 18px; margin: 0; }
+  .sub { font-size: 13px; color: #555; margin: 0 0 8px; }
+
+  .config {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 13px;
+  }
+  .config input {
+    flex: 1;
+    padding: 6px 8px;
+    font-size: 13px;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+  }
+  .config span { color: #555; white-space: nowrap; }
+
+  #log {
+    border: 1px solid #ccc;
+    background: #fff;
+    border-radius: 6px;
+    padding: 12px;
+    height: 60vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .msg { max-width: 80%; padding: 8px 10px; border-radius: 8px; font-size: 14px; white-space: pre-wrap; }
+  .msg.user { align-self: flex-end; background: #dbe8ff; }
+  .msg.bot { align-self: flex-start; background: #eee; }
+  .msg.error { align-self: flex-start; background: #ffe0e0; color: #900; }
+  .msg .role { display: block; font-size: 10px; opacity: 0.6; margin-bottom: 2px; }
+
+  form { display: flex; gap: 8px; }
+  #message {
+    flex: 1;
+    padding: 10px;
+    font-size: 14px;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+  }
+  button {
+    padding: 10px 16px;
+    font-size: 14px;
+    border: none;
+    border-radius: 4px;
+    background: #2b5fd9;
+    color: #fff;
+    cursor: pointer;
+  }
+  button:disabled { background: #99a9c9; cursor: not-allowed; }
+
+  #session-info { font-size: 11px; color: #888; }
+</style>
+</head>
+<body>
+<main>
+  <h1>AfriBiz Connect Assistant — Test UI</h1>
+  <p class="sub">Internal test page only (M7). Not the production website.</p>
+
+  <div class="config">
+    <span>Backend URL:</span>
+    <input id="api-base" type="text" placeholder="http://localhost:8000" />
+  </div>
+
+  <div id="log"></div>
+
+  <form id="chat-form">
+    <input id="message" type="text" placeholder="Type a message..." autocomplete="off" />
+    <button type="submit" id="send-btn">Send</button>
+  </form>
+
+  <div id="session-info"></div>
+</main>
+
+<script>
+  const API_BASE_KEY = "abc_test_ui_api_base";
+  const sessionId = crypto.randomUUID();
+
+  const apiBaseInput = document.getElementById("api-base");
+  const log = document.getElementById("log");
+  const form = document.getElementById("chat-form");
+  const messageInput = document.getElementById("message");
+  const sendBtn = document.getElementById("send-btn");
+  const sessionInfo = document.getElementById("session-info");
+
+  apiBaseInput.value = localStorage.getItem(API_BASE_KEY) || "http://localhost:8000";
+  apiBaseInput.addEventListener("change", () => {
+    localStorage.setItem(API_BASE_KEY, apiBaseInput.value.trim());
+  });
+
+  sessionInfo.textContent = "session_id: " + sessionId + " (new session for this page load, not saved)";
+
+  function addMessage(role, text) {
+    const div = document.createElement("div");
+    div.className = "msg " + role;
+    const label = document.createElement("span");
+    label.className = "role";
+    label.textContent = role === "user" ? "You" : role === "bot" ? "Assistant" : "Error";
+    div.appendChild(label);
+    div.appendChild(document.createTextNode(text));
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+    return div;
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = messageInput.value.trim();
+    if (!message) return;
+
+    const apiBase = apiBaseInput.value.trim().replace(/\/$/, "");
+    if (!apiBase) {
+      addMessage("error", "Set a backend URL above first.");
+      return;
+    }
+
+    addMessage("user", message);
+    messageInput.value = "";
+    sendBtn.disabled = true;
+    const pending = addMessage("bot", "...");
+
+    try {
+      const response = await fetch(apiBase + "/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId, message: message }),
+      });
+
+      if (!response.ok) {
+        const detail = await response.text();
+        pending.className = "msg error";
+        pending.querySelector(".role").textContent = "Error";
+        pending.lastChild.textContent = "HTTP " + response.status + ": " + detail;
+        return;
+      }
+
+      const data = await response.json();
+      pending.lastChild.textContent = data.reply;
+    } catch (err) {
+      pending.className = "msg error";
+      pending.querySelector(".role").textContent = "Error";
+      pending.lastChild.textContent = "Request failed: " + err.message + " (check the backend URL and that CORS allows this origin)";
+    } finally {
+      sendBtn.disabled = false;
+      messageInput.focus();
+    }
+  });
+</script>
+</body>
+</html>

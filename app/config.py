@@ -19,10 +19,16 @@ class Settings(BaseSettings):
     # once it has one). Empty by default — nothing to allow until a
     # frontend exists.
     cors_allowed_origins: str = ""
-    # Covers every Vercel deployment URL — production and preview builds
-    # alike (M7's throwaway test UI, and any future one) — without needing
-    # to know exact project names ahead of time.
-    cors_allowed_origin_regex: str = r"^https://.*\.vercel\.app$"
+    # Covers every Vercel deployment URL (production and preview builds
+    # alike — M7's test UI) plus localhost, for testing the test UI itself
+    # before it's ever deployed.
+    cors_allowed_origin_regex: str = (
+        r"^https://.*\.vercel\.app$|^http://(localhost|127\.0\.0\.1)(:\d+)?$"
+    )
+
+    # Basic per-IP abuse protection for the public /chat endpoint (Section 11 M6).
+    rate_limit_max_requests: int = 20
+    rate_limit_window_seconds: float = 60.0
 
 
 settings = Settings()

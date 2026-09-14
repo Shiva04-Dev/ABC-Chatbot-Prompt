@@ -1,7 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app, get_llm_client
+from app.main import app, get_llm_client, get_rate_limiter
+from app.rate_limiter import RateLimiter
 from tests.sample_scope_questions import IN_SCOPE_QUESTIONS, OUT_OF_SCOPE_QUESTIONS
 
 ALL_SAMPLE_QUESTIONS = IN_SCOPE_QUESTIONS + OUT_OF_SCOPE_QUESTIONS
@@ -24,8 +25,12 @@ def recording_client():
 @pytest.fixture
 def client(recording_client):
     app.dependency_overrides[get_llm_client] = lambda: recording_client
+    app.dependency_overrides[get_rate_limiter] = lambda: RateLimiter(
+        max_requests=1000, window_seconds=60
+    )
     yield TestClient(app)
     app.dependency_overrides.pop(get_llm_client, None)
+    app.dependency_overrides.pop(get_rate_limiter, None)
 
 
 def test_every_sample_question_gets_the_scope_locked_prompt(client, recording_client):

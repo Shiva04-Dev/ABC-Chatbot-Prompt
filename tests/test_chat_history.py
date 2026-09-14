@@ -1,7 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app, get_llm_client, get_session_store
+from app.main import app, get_llm_client, get_rate_limiter, get_session_store
+from app.rate_limiter import RateLimiter
 from app.session_store import MAX_HISTORY_MESSAGES, SessionStore
 
 
@@ -30,9 +31,13 @@ def sessions():
 def client(recording_client, sessions):
     app.dependency_overrides[get_llm_client] = lambda: recording_client
     app.dependency_overrides[get_session_store] = lambda: sessions
+    app.dependency_overrides[get_rate_limiter] = lambda: RateLimiter(
+        max_requests=1000, window_seconds=60
+    )
     yield TestClient(app)
     app.dependency_overrides.pop(get_llm_client, None)
     app.dependency_overrides.pop(get_session_store, None)
+    app.dependency_overrides.pop(get_rate_limiter, None)
 
 
 def test_first_turn_has_no_history(client, recording_client):
