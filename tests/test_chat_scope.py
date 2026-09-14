@@ -29,9 +29,12 @@ def client(recording_client):
 
 
 def test_every_sample_question_gets_the_scope_locked_prompt(client, recording_client):
-    for question in ALL_SAMPLE_QUESTIONS:
+    # Each question gets its own session — this test is about the scope-lock
+    # prompt, not history accumulation (see test_chat_history.py for that).
+    for index, question in enumerate(ALL_SAMPLE_QUESTIONS):
         response = client.post(
-            "/chat", json={"session_id": "test-chat-scope-session", "message": question}
+            "/chat",
+            json={"session_id": f"test-chat-scope-session-{index}", "message": question},
         )
         assert response.status_code == 200
 

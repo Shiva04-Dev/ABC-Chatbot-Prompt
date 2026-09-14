@@ -15,5 +15,14 @@ class Settings(BaseSettings):
     azure_openai_deployment: str = "PLACEHOLDER-deployment-name"
     azure_openai_api_version: str = "PLACEHOLDER-api-version"
 
+    # Comma-separated exact origins (e.g. the production frontend domain,
+    # once it has one). Empty by default — nothing to allow until a
+    # frontend exists.
+    cors_allowed_origins: str = ""
+    # Covers every Vercel deployment URL — production and preview builds
+    # alike (M7's throwaway test UI, and any future one) — without needing
+    # to know exact project names ahead of time.
+    cors_allowed_origin_regex: str = r"^https://.*\.vercel\.app$"
+
 
 settings = Settings()
