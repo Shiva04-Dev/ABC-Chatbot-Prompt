@@ -1,9 +1,9 @@
 """Sample in-scope / out-of-scope questions for the AfriBiz Connect assistant
-(CLAUDE.md M3: "refusal behavior tested with a set of in-scope and
-out-of-scope sample questions").
+(M3: "refusal behavior tested with a set of in-scope and out-of-scope sample
+questions").
 
 Scope enforcement here is entirely prompt-driven (no code-level classifier —
-CLAUDE.md Section 4/Non-Goals rule that out), so these questions can only be
+the project spec's Section 4/Non-Goals rule that out), so these questions can only be
 used to structurally check that every question — in- or out-of-scope — is
 sent through the scope-locked system prompt (see test_chat_scope.py).
 Judging whether the model actually *behaves* correctly on them (redirecting

@@ -11,7 +11,7 @@ from tests.isizulu_quality_samples import QUALITY_CHECKLIST, SAMPLE_PROMPTS
 )
 def test_isizulu_output_quality():
     """Run SAMPLE_PROMPTS through the real deployment via /chat and check
-    each reply against QUALITY_CHECKLIST before go-live (CLAUDE.md Section 5).
+    each reply against QUALITY_CHECKLIST before go-live (see Section 5 of the project spec).
     """
     assert SAMPLE_PROMPTS
     assert QUALITY_CHECKLIST

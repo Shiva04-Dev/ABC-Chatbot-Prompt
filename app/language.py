@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 SUPPORTED_LANGUAGES = ("en", "zu")
 
-# Explicit-switch phrases (CLAUDE.md Section 6). Checked as substrings of the
+# Explicit-switch phrases (see Section 6 of the project spec). Checked as substrings of the
 # lowercased message, so phrasing/punctuation around them doesn't matter.
 _EXPLICIT_SWITCH_PHRASES = {
     "en": [
@@ -29,7 +29,7 @@ _EXPLICIT_SWITCH_PHRASES = {
 }
 
 # Small, curated marker-word sets for the lightweight implicit heuristic
-# (CLAUDE.md Section 6) — not a general-purpose language identifier, just
+# (see Section 6 of the project spec) — not a general-purpose language identifier, just
 # enough to distinguish English from isiZulu, or notice that a message is
 # neither.
 _MARKER_WORDS = {
@@ -81,7 +81,7 @@ def detect_implicit_language(message: str) -> str | None:
 
 
 def resolve_language(message: str, session_language: str | None) -> LanguageResolution:
-    """Resolve the reply language for this turn (CLAUDE.md Section 6).
+    """Resolve the reply language for this turn (see Section 6 of the project spec).
 
     An explicit switch phrase always wins. Otherwise a language already
     established for this session persists turn to turn, so a stray English

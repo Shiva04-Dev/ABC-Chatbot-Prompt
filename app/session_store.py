@@ -1,7 +1,7 @@
 import time
 from typing import Callable
 
-# 8 exchanges (1 user + 1 assistant message each) — CLAUDE.md Section 8.
+# 8 exchanges (1 user + 1 assistant message each) — see Section 8 of the project spec.
 MAX_HISTORY_MESSAGES = 16
 
 # A session with no activity for this long is treated as gone — one visit

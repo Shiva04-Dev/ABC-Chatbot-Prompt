@@ -1,13 +1,12 @@
 from app.prompts import build_system_prompt
-from content.company import COMPANY_DESCRIPTION, CONTACT_DETAILS, SERVICE_CATALOG
+from content.company import COMPANY_DESCRIPTION, CONTACT_DETAILS, DIRECTOR_NAME, SERVICE_TIERS
 
 
 def test_default_prompt_includes_company_content():
     prompt = build_system_prompt()
     assert COMPANY_DESCRIPTION in prompt
     assert CONTACT_DETAILS in prompt
-    for service in SERVICE_CATALOG:
-        assert service in prompt
+    assert SERVICE_TIERS in prompt
 
 
 def test_default_prompt_locks_scope():
@@ -18,7 +17,8 @@ def test_default_prompt_locks_scope():
 
 def test_default_prompt_has_brand_guardrails():
     prompt = build_system_prompt()
-    assert "Never name or refer to a specific AfriBiz Connect staff member" in prompt
+    assert DIRECTOR_NAME in prompt
+    assert "Never name any other individual staff member" in prompt
     assert "internal lead-allocation" in prompt
     assert "Never mention or compare AfriBiz Connect to any competitor" in prompt
 
@@ -26,6 +26,12 @@ def test_default_prompt_has_brand_guardrails():
 def test_default_prompt_limits_lead_handling_to_contact_details():
     prompt = build_system_prompt()
     assert "Do not attempt to schedule anything, collect structured information" in prompt
+
+
+def test_default_prompt_directs_pricing_questions_to_contact_details():
+    prompt = build_system_prompt()
+    assert "never quote or estimate prices" in prompt
+    assert "direct the visitor to the contact details above" in prompt
 
 
 def test_english_directive():

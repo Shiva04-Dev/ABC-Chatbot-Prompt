@@ -4,8 +4,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Runtime configuration, loaded from environment variables / .env.
 
-    All values are placeholders until Shiv supplies real ones (CLAUDE.md
-    Section 10). No code changes should be needed to go live — only .env.
+    All values are placeholders until Shiv supplies real ones (see Section 10
+    of the project spec). No code changes should be needed to go live — only .env.
     """
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

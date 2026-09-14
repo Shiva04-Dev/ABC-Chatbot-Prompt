@@ -1,4 +1,4 @@
-"""isiZulu output-quality samples (CLAUDE.md Section 5's Zulu-quality caveat).
+"""isiZulu output-quality samples (see the project spec's Section 5, the Zulu-quality caveat).
 
 isiZulu is a lower-resource language for most LLMs, including GPT-5 nano.
 Whether output is grammatical and natural — not just "technically in

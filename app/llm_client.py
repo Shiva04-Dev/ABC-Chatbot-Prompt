@@ -12,7 +12,7 @@ class LLMClient(Protocol):
 
 
 class AzureLLMClient:
-    """Thin wrapper around the Azure OpenAI chat-completion call (CLAUDE.md Section 5).
+    """Thin wrapper around the Azure OpenAI chat-completion call (see Section 5 of the project spec).
 
     Construction never touches the network, so this is safe to instantiate
     with placeholder settings — the real call only happens in `complete`.
