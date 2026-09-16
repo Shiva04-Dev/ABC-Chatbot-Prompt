@@ -5,8 +5,12 @@ from tests.isizulu_quality_samples import QUALITY_CHECKLIST, SAMPLE_PROMPTS
 
 @pytest.mark.skip(
     reason=(
-        "Needs a live Azure OpenAI call against real credentials (M7) — "
-        "grammar and naturalness can't be judged from a mocked response."
+        "Grammar and naturalness can't be judged from a mocked response, so this "
+        "stays a manual check rather than an automated one. Manually verified "
+        "against the real GPT-5 mini deployment on 2026-09-16 — output read as "
+        "natural, grammatical isiZulu, stayed in-language throughout, and "
+        "correctly honoured scope-lock/guardrails. Re-verify if the deployment "
+        "or system prompt changes materially."
     )
 )
 def test_isizulu_output_quality():

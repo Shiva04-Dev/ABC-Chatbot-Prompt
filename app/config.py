@@ -10,10 +10,12 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    azure_openai_endpoint: str = "https://PLACEHOLDER.openai.azure.com/"
+    # Azure's OpenAI-compatible v1 API — no api_version needed (confirmed
+    # empirically against the real deployment; the v1 surface doesn't use
+    # Azure OpenAI's older dated api_version scheme at all).
+    azure_openai_endpoint: str = "https://PLACEHOLDER.services.ai.azure.com/openai/v1"
     azure_openai_api_key: str = "PLACEHOLDER-api-key"
     azure_openai_deployment: str = "PLACEHOLDER-deployment-name"
-    azure_openai_api_version: str = "PLACEHOLDER-api-version"
 
     # Comma-separated exact origins (e.g. the production frontend domain,
     # once it has one). Empty by default — nothing to allow until a
