@@ -34,6 +34,12 @@ def test_default_prompt_directs_pricing_questions_to_contact_details():
     assert "direct the visitor to the contact details above" in prompt
 
 
+def test_default_prompt_caps_reply_length_and_bans_bullets():
+    prompt = build_system_prompt()
+    assert "3 sentences or fewer" in prompt
+    assert "no bullet points, numbered lists, or headings" in prompt
+
+
 def test_english_directive():
     assert "Reply only in English." in build_system_prompt("en")
 

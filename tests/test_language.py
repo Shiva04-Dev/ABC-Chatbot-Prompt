@@ -17,6 +17,27 @@ def test_explicit_switch_none_when_absent():
     assert detect_explicit_switch("What services do you offer?") is None
 
 
+def test_explicit_switch_matches_language_name_in_any_phrasing():
+    # Regression test: a fixed phrase list previously missed anything not
+    # worded exactly like "reply in zulu" — e.g. "zulu please" fell through
+    # to the implicit heuristic, which misclassified it as English (since
+    # "please" is an English marker word and "zulu" itself wasn't in either
+    # marker set), causing the bot to apologise and stay in English despite
+    # a clear request to switch. Any phrasing containing the language name
+    # as a whole word must now trigger the switch.
+    for message in [
+        "zulu please",
+        "can you do zulu",
+        "talk to me in zulu",
+        "Can we continue in isiZulu?",
+    ]:
+        assert detect_explicit_switch(message) == "zu", message
+
+
+def test_explicit_switch_does_not_false_positive_on_kwazulu_natal():
+    assert detect_explicit_switch("Are you based in KwaZulu-Natal?") is None
+
+
 def test_implicit_detects_zulu_markers():
     assert detect_implicit_language("Sawubona, ngicela usizo") == "zu"
 

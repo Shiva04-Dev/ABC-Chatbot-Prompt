@@ -3,29 +3,15 @@ from dataclasses import dataclass
 
 SUPPORTED_LANGUAGES = ("en", "zu")
 
-# Explicit-switch phrases (see Section 6 of the project spec). Checked as substrings of the
-# lowercased message, so phrasing/punctuation around them doesn't matter.
-_EXPLICIT_SWITCH_PHRASES = {
-    "en": [
-        "speak english",
-        "reply in english",
-        "respond in english",
-        "english please",
-        "switch to english",
-    ],
-    "zu": [
-        "speak zulu",
-        "speak isizulu",
-        "khuluma isizulu",
-        "khuluma izulu",
-        "reply in zulu",
-        "reply in isizulu",
-        "respond in zulu",
-        "respond in isizulu",
-        "isizulu please",
-        "switch to zulu",
-        "switch to isizulu",
-    ],
+# Explicit-switch detection (see Section 6 of the project spec): rather than
+# matching a fixed list of exact phrases ("speak zulu", "reply in zulu", ...)
+# — which is brittle and misses anything phrased differently, e.g. "zulu
+# please" or "can you do zulu" — this matches the language name itself as a
+# whole word, in either language, anywhere in the message. \b word
+# boundaries keep "KwaZulu-Natal" from false-matching "zulu".
+_EXPLICIT_SWITCH_PATTERNS = {
+    "en": re.compile(r"\benglish\b"),
+    "zu": re.compile(r"\b(isi)?zulu\b"),
 }
 
 # Small, curated marker-word sets for the lightweight implicit heuristic
@@ -65,8 +51,8 @@ def _tokenize(message: str) -> list[str]:
 
 def detect_explicit_switch(message: str) -> str | None:
     lowered = message.lower()
-    for language, phrases in _EXPLICIT_SWITCH_PHRASES.items():
-        if any(phrase in lowered for phrase in phrases):
+    for language, pattern in _EXPLICIT_SWITCH_PATTERNS.items():
+        if pattern.search(lowered):
             return language
     return None
 

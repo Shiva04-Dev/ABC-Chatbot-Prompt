@@ -1,18 +1,28 @@
+import logging
 from typing import Protocol
 
 from openai import OpenAI
 
 from app.config import Settings
 
+logger = logging.getLogger(__name__)
+
 # Safety-net cap on reply length, not the primary length control (that's the
 # "Style" instruction in app/prompts.py telling the model to be concise).
 # GPT-5 mini is a reasoning model that spends part of this budget on internal
 # reasoning tokens before any visible text — empirically, 300 wasn't enough
-# and came back essentially empty; 500 completed reliably. Keeping real
-# headroom above that measured threshold rather than trying to use this to
-# tightly control length, since a too-low cap fails as a silent empty reply,
-# not a graceful truncation.
+# and came back essentially empty; 500 completed reliably most of the time.
+# But this isn't fully deterministic: on a harder/more ambiguous input, an
+# 800-token budget was once still entirely consumed by reasoning with no
+# visible output — an identical retry then succeeded normally. So no fixed
+# cap is guaranteed safe; see RETRY_MAX_OUTPUT_TOKENS below for how that's
+# actually handled.
 MAX_OUTPUT_TOKENS = 800
+
+# Used for a single automatic retry if the first attempt comes back with no
+# visible text (see complete() below) — more headroom than the first try,
+# on the theory that a bit more room reduces the odds of hitting this twice.
+RETRY_MAX_OUTPUT_TOKENS = 1500
 
 
 class LLMClient(Protocol):
@@ -42,4 +52,32 @@ class AzureLLMClient:
             input=messages,
             max_output_tokens=MAX_OUTPUT_TOKENS,
         )
-        return response.output_text
+        if response.output_text:
+            return response.output_text
+
+        # Reasoning consumed the whole budget with nothing visible left over
+        # (real, observed behaviour — not hypothetical). One retry with more
+        # headroom before giving up; never silently return an empty reply.
+        logger.warning(
+            "Empty output_text at max_output_tokens=%d (status=%r); retrying at %d",
+            MAX_OUTPUT_TOKENS,
+            response.status,
+            RETRY_MAX_OUTPUT_TOKENS,
+        )
+        retry_response = self._client.responses.create(
+            model=self._deployment,
+            input=messages,
+            max_output_tokens=RETRY_MAX_OUTPUT_TOKENS,
+        )
+        if retry_response.output_text:
+            return retry_response.output_text
+
+        logger.error(
+            "Empty output_text again after retry at max_output_tokens=%d (status=%r)",
+            RETRY_MAX_OUTPUT_TOKENS,
+            retry_response.status,
+        )
+        raise RuntimeError(
+            "Model returned no output text after a retry "
+            f"(status={retry_response.status!r})"
+        )
