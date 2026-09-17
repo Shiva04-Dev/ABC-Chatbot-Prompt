@@ -25,13 +25,19 @@ def test_default_prompt_has_brand_guardrails():
 
 def test_default_prompt_limits_lead_handling_to_contact_details():
     prompt = build_system_prompt()
-    assert "Do not attempt to schedule anything, collect structured information" in prompt
+    assert "don't attempt to schedule anything, collect structured information" in prompt
 
 
 def test_default_prompt_directs_pricing_questions_to_contact_details():
     prompt = build_system_prompt()
     assert "never quote or estimate prices" in prompt
     assert "direct the visitor to the contact details above" in prompt
+
+
+def test_default_prompt_restricts_contact_details_to_explicit_triggers():
+    prompt = build_system_prompt()
+    assert "explicitly asks how to contact or reach AfriBiz Connect" in prompt
+    assert "Do not include them in any other reply" in prompt
 
 
 def test_default_prompt_caps_reply_length_and_bans_bullets():
