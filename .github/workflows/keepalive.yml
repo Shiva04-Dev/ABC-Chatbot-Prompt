@@ -1,11 +1,7 @@
 name: Keep-alive ping (F1 tier)
 
-# F1 (Free) App Service has no "Always On" option, so it idles out after a
-# period of no traffic and cold-starts on the next request. This pings
-# /health regularly to keep that from happening. Note: GitHub's scheduled
-# workflows aren't guaranteed to fire exactly on time (can slip under
-# platform load), so this reduces cold starts, it doesn't fully guarantee
-# against them the way Always On would on a paid tier.
+# F1 App Service has no "Always On" option, so this pings /health to
+# reduce (not guarantee against) cold starts from idling out.
 
 on:
   schedule:

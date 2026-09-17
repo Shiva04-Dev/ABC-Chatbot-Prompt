@@ -1,3 +1,5 @@
+import threading
+
 from app.session_store import MAX_HISTORY_MESSAGES, SessionStore
 
 
@@ -63,6 +65,25 @@ def test_history_is_isolated_per_session():
         {"role": "user", "content": "hello b"},
         {"role": "assistant", "content": "hi b"},
     ]
+
+
+def test_append_turn_is_thread_safe_under_concurrent_requests():
+    # Same class of race as RateLimiter — concurrent appends should all land.
+    store = SessionStore()
+
+    def append(i: int) -> None:
+        store.append_turn("concurrent-session", f"question {i}", f"answer {i}")
+
+    threads = [threading.Thread(target=append, args=(i,)) for i in range(50)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    # Every append must register — none silently dropped by a race.
+    history = store.get_history("concurrent-session")
+    assert len(history) == MAX_HISTORY_MESSAGES
+    assert all(msg["role"] in ("user", "assistant") for msg in history)
 
 
 def test_session_still_active_within_ttl():

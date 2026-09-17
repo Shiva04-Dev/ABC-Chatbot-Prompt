@@ -1,27 +1,11 @@
-<!--
-  AfriBiz Connect Assistant — Test UI (M7)
-
-  Throwaway UI for manually testing the /chat backend. Not the production
-  website (that lives in a different repo) — Shiv deploys this standalone
-  to Vercel by pointing a project at this folder (zero-config static site,
-  no build step needed).
-
-  Set the "Backend URL" field to wherever the FastAPI app is running
-  (e.g. http://localhost:8000 locally, or the real deployment once M8 is
-  wired up). It's saved in this browser's localStorage purely as a
-  convenience for repeated testing — it has nothing to do with the chat
-  session itself.
-
-  Each page load starts a brand-new session_id in memory only (never
-  persisted), matching the product's session model: one visit, one
-  session, nothing saved once you leave.
--->
+<!-- Throwaway UI for manually testing the /chat backend, not production.
+     Backend URL is saved to localStorage; session_id is fresh per page load. -->
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>AfriBiz Connect Assistant — Test UI</title>
+<title>Assistant — Test UI</title>
 <style>
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
@@ -100,12 +84,12 @@
 </head>
 <body>
 <main>
-  <h1>AfriBiz Connect Assistant — Test UI</h1>
-  <p class="sub">Internal test page only (M7). Not the production website.</p>
+  <h1>Assistant — Test UI</h1>
+  <p class="sub">Internal test page only. Not the production website.</p>
 
   <div class="config">
     <span>Backend URL:</span>
-    <input id="api-base" type="text" placeholder="https://afribizconnect-c2dgdqfnbfdshsb7.centralus-01.azurewebsites.net" />
+    <input id="api-base" type="text" placeholder="http://localhost:8000" />
   </div>
 
   <div id="log"></div>

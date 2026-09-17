@@ -3,21 +3,15 @@ from dataclasses import dataclass
 
 SUPPORTED_LANGUAGES = ("en", "zu")
 
-# Explicit-switch detection (see Section 6 of the project spec): rather than
-# matching a fixed list of exact phrases ("speak zulu", "reply in zulu", ...)
-# — which is brittle and misses anything phrased differently, e.g. "zulu
-# please" or "can you do zulu" — this matches the language name itself as a
-# whole word, in either language, anywhere in the message. \b word
+# Matches the language name as a whole word anywhere in the message, rather
+# than a fixed phrase list (which missed things like "zulu please"). \b
 # boundaries keep "KwaZulu-Natal" from false-matching "zulu".
 _EXPLICIT_SWITCH_PATTERNS = {
     "en": re.compile(r"\benglish\b"),
     "zu": re.compile(r"\b(isi)?zulu\b"),
 }
 
-# Small, curated marker-word sets for the lightweight implicit heuristic
-# (see Section 6 of the project spec) — not a general-purpose language identifier, just
-# enough to distinguish English from isiZulu, or notice that a message is
-# neither.
+# Small curated marker words for the lightweight implicit-detection heuristic.
 _MARKER_WORDS = {
     "en": {
         "the", "hello", "hi", "hey", "thanks", "thank", "please", "yes", "no",
@@ -67,14 +61,11 @@ def detect_implicit_language(message: str) -> str | None:
 
 
 def resolve_language(message: str, session_language: str | None) -> LanguageResolution:
-    """Resolve the reply language for this turn (see Section 6 of the project spec).
+    """Resolve the reply language for this turn.
 
-    An explicit switch phrase always wins. Otherwise a language already
-    established for this session persists turn to turn, so a stray English
-    or isiZulu word in an unrelated message can't flip it — only an
-    explicit switch can. Only on the *first* turn of a session (nothing
-    persisted yet) does the implicit marker-word heuristic decide; if it
-    can't tell, that's the third-language fallback.
+    An explicit switch always wins. Otherwise a session's established
+    language persists turn to turn; only on a session's first turn does
+    the implicit heuristic decide, falling back if it can't tell.
     """
     explicit = detect_explicit_switch(message)
     if explicit is not None:

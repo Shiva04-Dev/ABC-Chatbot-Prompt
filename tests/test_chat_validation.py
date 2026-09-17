@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from app.main import app, get_llm_client, get_rate_limiter, get_session_store
 from app.rate_limiter import RateLimiter
 from app.session_store import SessionStore
+from tests.helpers import sid
 
 
 class FakeLLMClient:
@@ -25,17 +26,17 @@ def client():
 
 
 def test_empty_message_is_rejected(client):
-    response = client.post("/chat", json={"session_id": "s1", "message": ""})
+    response = client.post("/chat", json={"session_id": sid("s1"), "message": ""})
     assert response.status_code == 422
 
 
 def test_overlong_message_is_rejected(client):
-    response = client.post("/chat", json={"session_id": "s1", "message": "a" * 2001})
+    response = client.post("/chat", json={"session_id": sid("s1"), "message": "a" * 2001})
     assert response.status_code == 422
 
 
 def test_message_at_the_limit_is_accepted(client):
-    response = client.post("/chat", json={"session_id": "s1", "message": "a" * 2000})
+    response = client.post("/chat", json={"session_id": sid("s1"), "message": "a" * 2000})
     assert response.status_code == 200
 
 

@@ -18,13 +18,8 @@ def test_explicit_switch_none_when_absent():
 
 
 def test_explicit_switch_matches_language_name_in_any_phrasing():
-    # Regression test: a fixed phrase list previously missed anything not
-    # worded exactly like "reply in zulu" — e.g. "zulu please" fell through
-    # to the implicit heuristic, which misclassified it as English (since
-    # "please" is an English marker word and "zulu" itself wasn't in either
-    # marker set), causing the bot to apologise and stay in English despite
-    # a clear request to switch. Any phrasing containing the language name
-    # as a whole word must now trigger the switch.
+    # Regression test: a fixed phrase list missed phrasings like "zulu
+    # please". Any phrasing with the language name as a whole word now matches.
     for message in [
         "zulu please",
         "can you do zulu",

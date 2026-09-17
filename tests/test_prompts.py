@@ -1,5 +1,11 @@
 from app.prompts import build_system_prompt
-from content.company import COMPANY_DESCRIPTION, CONTACT_DETAILS, DIRECTOR_NAME, SERVICE_TIERS
+from content.company import (
+    COMPANY_DESCRIPTION,
+    COMPANY_NAME,
+    CONTACT_DETAILS,
+    DIRECTOR_NAME,
+    SERVICE_TIERS,
+)
 
 
 def test_default_prompt_includes_company_content():
@@ -11,7 +17,7 @@ def test_default_prompt_includes_company_content():
 
 def test_default_prompt_locks_scope():
     prompt = build_system_prompt()
-    assert "only discuss AfriBiz Connect" in prompt
+    assert f"only discuss {COMPANY_NAME}" in prompt
     assert "briefly and naturally steer the conversation back" in prompt
 
 
@@ -20,7 +26,7 @@ def test_default_prompt_has_brand_guardrails():
     assert DIRECTOR_NAME in prompt
     assert "Never name any other individual staff member" in prompt
     assert "internal lead-allocation" in prompt
-    assert "Never mention or compare AfriBiz Connect to any competitor" in prompt
+    assert f"Never mention or compare {COMPANY_NAME} to any competitor" in prompt
 
 
 def test_default_prompt_limits_lead_handling_to_contact_details():
@@ -36,7 +42,7 @@ def test_default_prompt_directs_pricing_questions_to_contact_details():
 
 def test_default_prompt_restricts_contact_details_to_explicit_triggers():
     prompt = build_system_prompt()
-    assert "explicitly asks how to contact or reach AfriBiz Connect" in prompt
+    assert f"explicitly asks how to contact or reach {COMPANY_NAME}" in prompt
     assert "Do not include them in any other reply" in prompt
 
 

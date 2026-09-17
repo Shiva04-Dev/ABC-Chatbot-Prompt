@@ -12,8 +12,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          # Matches the App Service's Runtime stack (Configuration → Stack
-          # settings) — confirmed as Python 3.14 there.
+          # Match the App Service's Runtime stack version.
           python-version: "3.14"
       - name: Install dependencies
         run: pip install -r requirements.txt

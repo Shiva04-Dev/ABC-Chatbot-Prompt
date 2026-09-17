@@ -8,14 +8,13 @@ from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.language import FALLBACK_NOTICE, resolve_language
-from app.llm_client import AzureLLMClient, LLMClient
+from app.llm_client import AzureLLMClient, ContentFilteredError, LLMClient
 from app.prompts import build_system_prompt
 from app.rate_limiter import RateLimiter
 from app.session_store import SessionStore, session_store
+from content.company import COMPANY_NAME
 
-# How often the background sweep checks for idle sessions / stale rate-limit
-# windows to drop. Well under the 30-minute session TTL so expired entries
-# don't linger long in memory.
+# How often the background sweep clears idle sessions / stale rate-limit windows.
 SESSION_SWEEP_INTERVAL_SECONDS = 5 * 60
 
 rate_limiter = RateLimiter(
@@ -40,7 +39,7 @@ async def lifespan(app: FastAPI):
         sweep_task.cancel()
 
 
-app = FastAPI(title="AfriBiz Connect Lite Assistant", lifespan=lifespan)
+app = FastAPI(title=f"{COMPANY_NAME} Lite Assistant", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -66,12 +65,11 @@ def get_rate_limiter() -> RateLimiter:
 
 
 def _client_key(request: Request) -> str:
-    # Best-effort client identity for rate limiting. X-Forwarded-For is
-    # spoofable unless the deployment sits behind a trusted proxy that sets
-    # it itself — revisit once the hosting target (Section 12.4) is fixed.
+    # Trust the LAST X-Forwarded-For hop (our proxy's), not the first
+    # (client-controlled and spoofable — confirmed by a pentest).
     forwarded_for = request.headers.get("x-forwarded-for")
     if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
+        return forwarded_for.split(",")[-1].strip()
     return request.client.host if request.client else "unknown"
 
 
@@ -85,8 +83,13 @@ def enforce_rate_limit(
         )
 
 
+SESSION_ID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+
+
 class ChatRequest(BaseModel):
-    session_id: str = Field(min_length=1, max_length=128)
+    # Must be UUID-shaped — a guessable session_id let one visitor hijack
+    # another's session (confirmed by a pentest).
+    session_id: str = Field(pattern=SESSION_ID_PATTERN)
     message: str = Field(min_length=1, max_length=2000)
 
 
@@ -94,14 +97,17 @@ class ChatResponse(BaseModel):
     reply: str
 
 
+# Shown when content safety blocks a message outright — a normal in-scope
+# refusal, not an error.
+CONTENT_FILTERED_REPLY = (
+    "I'm not able to help with that. Let me know if you have any questions "
+    f"about {COMPANY_NAME} and its services!"
+)
+
+
 @app.exception_handler(Exception)
 async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
-    # An exception handler here (registered with FastAPI/Starlette's
-    # ExceptionMiddleware) is what makes CORS headers still get attached to
-    # error responses — letting an exception fall through to Starlette's
-    # outer ServerErrorMiddleware instead produces a response with none,
-    # which browsers surface as a confusing "blocked by CORS policy" error
-    # that has nothing to do with CORS.
+    # A registered handler keeps CORS headers on error responses too.
     return JSONResponse(
         status_code=500,
         content={"detail": "Something went wrong. Please try again shortly."},
@@ -124,8 +130,7 @@ def chat(
     sessions.set_language(request.session_id, resolution.language)
 
     if resolution.used_fallback:
-        # Don't guess-translate into an unsupported language (Section 6) —
-        # reply directly, with no model call needed for this turn.
+        # Don't guess-translate into an unsupported language — reply directly.
         sessions.append_turn(request.session_id, request.message, FALLBACK_NOTICE)
         return ChatResponse(reply=FALLBACK_NOTICE)
 
@@ -137,6 +142,9 @@ def chat(
     ]
     try:
         reply = client.complete(messages)
+    except ContentFilteredError:
+        # The platform correctly blocked this — not a failure.
+        reply = CONTENT_FILTERED_REPLY
     except Exception as exc:
         raise HTTPException(
             status_code=502,

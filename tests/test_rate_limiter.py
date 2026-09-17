@@ -1,3 +1,5 @@
+import threading
+
 from app.rate_limiter import RateLimiter
 
 
@@ -46,6 +48,27 @@ def test_keys_are_tracked_independently():
     assert limiter.is_allowed("ip-2") is False
 
 
+def test_is_allowed_is_thread_safe_under_concurrent_requests():
+    # Concurrent calls for the same key are possible under FastAPI's
+    # threadpool; without the lock this race lets requests bypass the limit.
+    limiter = RateLimiter(max_requests=20, window_seconds=60)
+    results: list[bool] = []
+    results_lock = threading.Lock()
+
+    def hit() -> None:
+        allowed = limiter.is_allowed("same-key")
+        with results_lock:
+            results.append(allowed)
+
+    threads = [threading.Thread(target=hit) for _ in range(100)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert sum(results) == 20
+
+
 def test_purge_stale_drops_elapsed_windows_only():
     clock = FakeClock()
     limiter = RateLimiter(max_requests=5, window_seconds=60, clock=clock)
@@ -59,6 +82,5 @@ def test_purge_stale_drops_elapsed_windows_only():
     removed = limiter.purge_stale()
 
     assert removed == 1
-    # Both keys get a clean new window on next use either way, but confirm
-    # the fresh key's in-window count survived the purge.
+    # Confirm the fresh key's in-window count survived the purge.
     assert limiter.is_allowed("fresh") is True

@@ -1,15 +1,35 @@
 from types import SimpleNamespace
 
+import httpx2
 import pytest
+from openai import BadRequestError
 
 from app.config import Settings
-from app.llm_client import MAX_OUTPUT_TOKENS, RETRY_MAX_OUTPUT_TOKENS, AzureLLMClient
+from app.llm_client import (
+    MAX_OUTPUT_TOKENS,
+    RETRY_MAX_OUTPUT_TOKENS,
+    AzureLLMClient,
+    ContentFilteredError,
+)
+
+
+def _content_filter_error() -> BadRequestError:
+    response = httpx2.Response(400, request=httpx2.Request("POST", "https://example.com"))
+    body = {"message": "The response was filtered", "code": "content_filter"}
+    return BadRequestError("The response was filtered", response=response, body=body)
+
+
+class RaisingResponsesEndpoint:
+    def __init__(self, exc: Exception):
+        self._exc = exc
+
+    def create(self, model, input, max_output_tokens):
+        raise self._exc
 
 
 class FakeResponsesEndpoint:
-    """Stands in for openai's `client.responses`, returning canned results
-    in order so the retry-on-empty-output behaviour can be tested without
-    hitting the real API."""
+    """Stands in for openai's `client.responses` to test retry-on-empty
+    behaviour without hitting the real API."""
 
     def __init__(self, outputs: list[tuple[str, str]]):
         self._outputs = list(outputs)
@@ -63,3 +83,25 @@ def test_complete_raises_if_the_retry_is_also_empty():
         client.complete([{"role": "user", "content": "hi"}])
 
     assert len(fake.calls) == 2
+
+
+def test_content_filter_block_raises_content_filtered_error():
+    # Confirmed live: content safety blocks with a 400 BadRequestError
+    # (code "content_filter") — distinguishable from a genuine outage.
+    client = AzureLLMClient(Settings())
+    client._client = SimpleNamespace(responses=RaisingResponsesEndpoint(_content_filter_error()))
+
+    with pytest.raises(ContentFilteredError):
+        client.complete([{"role": "user", "content": "jailbreak attempt"}])
+
+
+def test_other_bad_request_errors_are_not_swallowed_as_content_filtered():
+    response = httpx2.Response(400, request=httpx2.Request("POST", "https://example.com"))
+    other_error = BadRequestError(
+        "Something else was wrong", response=response, body={"code": "invalid_request"}
+    )
+    client = AzureLLMClient(Settings())
+    client._client = SimpleNamespace(responses=RaisingResponsesEndpoint(other_error))
+
+    with pytest.raises(BadRequestError):
+        client.complete([{"role": "user", "content": "hi"}])
