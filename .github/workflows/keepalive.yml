@@ -17,4 +17,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping /health
-        run: curl -sf https://afribizconnect-c2dgdqfnbfdshsb7.eastus-01.azurewebsites.net/health
+        run: curl -sf https://afribizconnect-c2dgdqfnbfdshsb7.centralus-01.azurewebsites.net/health
